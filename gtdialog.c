@@ -48,7 +48,11 @@ static GtkWindow *parent;
 #else
 static CDKENTRY *focused_entry;
 #endif
-static int RESPONSE_DELETE = -1, RESPONSE_TIMEOUT = 0, RESPONSE_CHANGE = 4;
+static const int RESPONSE_DELETE = -1, RESPONSE_TIMEOUT = 0;
+#if GTK
+static const int RESPONSE_CHANGE = 4;
+#endif
+
 // Options used by other functions.
 static int indeterminate, stoppable, string_output, output_col = 1,
            search_col = 1;
@@ -351,8 +355,8 @@ typedef struct {
  */
 static char *strdown(char *s) {
   char *lower = copy(s);
-  int len = strlen(s);
-  for (int i = 0; i < len; i++) lower[i] = tolower(s[i]);
+  size_t len = strlen(s);
+  for (size_t i = 0; i < len; i++) lower[i] = tolower(s[i]);
   return lower;
 }
 
@@ -701,24 +705,24 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
 
   // Create dialog.
 #if GTK
-  GtkWidget *dialog, *entry, *entries[nrows], *textview, *progressbar,
-            *combobox, *treeview, *options[nrows];
+  GtkWidget *dialog, *entry = NULL, *entries[nrows], *textview = NULL, *progressbar,
+            *combobox = NULL, *treeview = NULL, *options[nrows];
   GtkListStore *list;
 #elif CURSES
   int cursor = curs_set(1); // enable cursor
   CDKSCREEN *dialog;
-  CDKLABEL *labelt, *labeli;
-  CDKENTRY *entry, *entries[nrows + 1];
-  CDKMENTRY *textview;
+  CDKLABEL *labelt = NULL, *labeli = NULL;
+  CDKENTRY *entry = NULL, *entries[nrows + 1];
+  CDKMENTRY *textview = NULL;
 //  CDKSLIDER *progressbar;
-  CDKITEMLIST *combobox;
+  CDKITEMLIST *combobox = NULL;
   CDKBUTTONBOX *buttonbox;
-  CDKSCROLL *scrolled;
-  Model model = {ncols, search_col, (char **)items, len, NULL, 0, NULL, NULL};
-  CDKSELECTION *options;
-  CDKFSELECT *fileselect;
+  CDKSCROLL *scrolled = NULL;
+  Model model = {ncols, search_col, (char **)items, len, NULL, 0, NULL, NULL, NULL};
+  CDKSELECTION *options = NULL;
+  CDKFSELECT *fileselect = NULL;
   char cwd[FILENAME_MAX];
-  if (getcwd(cwd, FILENAME_MAX)); // 'if' prevents compiler warning
+  if (getcwd(cwd, FILENAME_MAX)) { } // 'if' prevents compiler warning
 #endif
   if (type != GTDIALOG_FILESELECT && type != GTDIALOG_FILESAVE) {
 #if GTK
@@ -1167,7 +1171,8 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
     } else if (type >= GTDIALOG_INPUTBOX && type != GTDIALOG_FILESELECT &&
                type != GTDIALOG_FILESAVE && type != GTDIALOG_PROGRESSBAR) {
       if (response > RESPONSE_TIMEOUT) {
-        char *txt = "";
+        static char no_txt[] = "";
+        char *txt = no_txt;
         int created = FALSE;
         if (type <= GTDIALOG_SECURE_STANDARD_INPUTBOX) {
 #if GTK
@@ -1185,7 +1190,7 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
 #elif CURSES
           if (nrows > 1) {
             // Combine multiple entries into a '\n' separated string.
-            int len = 1;
+            size_t len = 1;
             for (i = 0; i < nrows; i++)
               len += strlen(getCDKEntryValue(entries[i])) + 1;
             txt = malloc(len), created = TRUE;
@@ -1269,7 +1274,7 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
           if (strlen(txt) > 0) txt[strlen(txt) - 1] = '\0'; // chomp '\n'
           g_string_free(gstr, TRUE);
 #elif CURSES
-          int txt_len = 0;
+          size_t txt_len = 0;
           for (i = 0; i < len; i++)
             if (options->selections[i]) txt_len += strlen(items[i]) + 1;
           if (txt_len > 0) {
@@ -1313,7 +1318,7 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
     char *txt = activateCDKFselect(fileselect, NULL);
     out = txt ? copy(txt) : copy("");
     destroyCDKFselect(fileselect);
-    if (chdir(cwd)); // 'if' prevents compiler warning
+    if (chdir(cwd)) { } // 'if' prevents compiler warning
 #endif
   } else if (type == GTDIALOG_PROGRESSBAR) {
 #if GTK
@@ -1367,6 +1372,13 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
     free(out);
     out = new_out;
   }
+#if CURSES
+  // UNUSED
+  (void)select_only_dirs; (void)selected; (void)timeout_len;
+  (void)percent; (void)select_multiple; (void)timeout_len;
+  (void)exit_onchange; (void)floating; (void)icon; (void)icon_file;
+  (void)no_create_dirs;
+#endif
   return out;
 }
 
@@ -1731,8 +1743,10 @@ type "\nArguments:\n" HELP_DEFAULT_ARGS args "\n" returns "\nExample:\n" example
  * @param argc The number of command line parameters.
  * @param argv The set of command line parameters for the dialog.
  */
-int help(int argc, char *argv[]) {
+
+#ifndef LIBRARY
 #ifndef NOHELP
+static int help(int argc, char *argv[]) {
   switch ((argc == 3) ? gtdialog_type(argv[2]) : -1) {
   case GTDIALOG_MSGBOX:
   case GTDIALOG_OK_MSGBOX:
@@ -1857,11 +1871,10 @@ int help(int argc, char *argv[]) {
   default:
     puts(HELP_ALL);
   }
-#endif
   return 1;
 }
+#endif /* NOHELP */
 
-#ifndef LIBRARY
 /**
  * Runs gtdialog from the command line and prints its output to stdout.
  * @param argc The number of command line parameters.
