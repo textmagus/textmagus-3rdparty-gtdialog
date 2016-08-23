@@ -113,7 +113,7 @@ void gtdialog_set_parent(GtkWindow *window) {
  *   "secure-inputbox", "secure-standard-inputbox", "fileselect", "filesave",
  *   "textbox", "progressbar", "dropdown", "standard-dropdown", and
  *   "filteredlist".
- * @return GTDialogType or -1
+ * @return GTDialogType or GTDIALOG_UNKNOWN
  */
 GTDialogType gtdialog_type(const char *type) {
   if (strcmp(type, "msgbox") == 0)
@@ -146,7 +146,7 @@ GTDialogType gtdialog_type(const char *type) {
     return GTDIALOG_FILTEREDLIST;
   else if (strcmp(type, "optionselect") == 0)
     return GTDIALOG_OPTIONSELECT;
-  return -1;
+  return GTDIALOG_UNKNOWN;
 }
 
 // Callbacks and utility functions.
@@ -413,7 +413,8 @@ static unsigned int utf8charlen(unsigned char ch) {
 /** Returns the number of characters in the given UTF-8 string. */
 static size_t utf8strlen(const char *s) {
   size_t len = strlen(s), utf8len = 0;
-  for (int i = 0; i < len; i += utf8charlen((unsigned char)(s[i]))) utf8len++;
+  for (size_t i = 0; i < len; i += utf8charlen((unsigned char)(s[i])))
+    utf8len++;
   return utf8len;
 }
 #endif
@@ -718,7 +719,9 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
   CDKITEMLIST *combobox = NULL;
   CDKBUTTONBOX *buttonbox;
   CDKSCROLL *scrolled = NULL;
-  Model model = {ncols, search_col, (char **)items, len, NULL, 0, NULL, NULL, NULL};
+  Model model = {
+    ncols, search_col, (char **)items, len, NULL, 0, NULL, NULL, NULL
+  };
   CDKSELECTION *options = NULL;
   CDKFSELECT *fileselect = NULL;
   char cwd[FILENAME_MAX];
@@ -1747,7 +1750,7 @@ type "\nArguments:\n" HELP_DEFAULT_ARGS args "\n" returns "\nExample:\n" example
 #ifndef LIBRARY
 #ifndef NOHELP
 static int help(int argc, char *argv[]) {
-  switch ((argc == 3) ? gtdialog_type(argv[2]) : -1) {
+  switch ((argc == 3) ? gtdialog_type(argv[2]) : GTDIALOG_UNKNOWN) {
   case GTDIALOG_MSGBOX:
   case GTDIALOG_OK_MSGBOX:
   case GTDIALOG_YESNO_MSGBOX:
