@@ -751,10 +751,13 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
 #elif CURSES
       int nbuttons = 0;
       for (i = 0; i < 3; i++) if (buttons[i]) nbuttons++;
+      char *rtl_buttons[3] = {NULL, NULL, NULL};
+      for (i = nbuttons; i > 0; i--)
+        rtl_buttons[nbuttons - i] = (char *)buttons[i - 1];
       buttonbox = newCDKButtonbox(dialog, 0, BOTTOM, 1, 0, "", 1, nbuttons,
-                                  (char **)buttons, nbuttons, A_REVERSE, TRUE,
+                                  rtl_buttons, nbuttons, A_REVERSE, TRUE,
                                   FALSE);
-      setCDKButtonboxCurrentButton(buttonbox, 0);
+      setCDKButtonboxCurrentButton(buttonbox, nbuttons - 1);
 #endif
     }
     // Create dialog content.
@@ -1158,6 +1161,8 @@ char *gtdialog(GTDialogType type, int narg, const char *args[]) {
       // activateCDKButtonbox returns -1 on escape so check for response == 0.
       if (response == 0) response = RESPONSE_DELETE;
     }
+    if (response != RESPONSE_DELETE)
+      response = buttonbox->buttonCount - (response - 1); // buttons are RTL
     wborder(border, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '), wrefresh(border);
     delwin(border);
     destroyCDKButtonbox(buttonbox);
@@ -1886,7 +1891,7 @@ static int help(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
   if (argc == 1 || strcmp(argv[1], "help") == 0) return help(argc, argv);
   int type = gtdialog_type(argv[1]);
-  if (type < 0) return help(argc, argv);
+  if (type == GTDIALOG_UNKNOWN) return help(argc, argv);
 #if GTK
   gtk_init(&argc, &argv);
 #elif CURSES
